@@ -1,13 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-// import "./course-form.css";
 import "./instructor.css";
 import BASE_URL from "../../config/url";
+
 /* ─────────────────────────────────────────
-   SHARED CONSTANTS (same as CreateCourse)
+   SHARED CONSTANTS
 ───────────────────────────────────────── */
-const CATEGORIES  = ["Web Development", "Backend", "Data Science", "Design", "DevOps", "Computer Science", "Mobile", "Other"];
 const LEVELS      = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
 const LEVEL_LABEL = { BEGINNER: "Beginner", INTERMEDIATE: "Intermediate", ADVANCED: "Advanced" };
 const LEVEL_STYLE = {
@@ -20,13 +19,18 @@ const user = JSON.parse(localStorage.getItem("user") || "null");
 const INSTRUCTOR_ID = user?.id;
 
 const STEPS = [
-  { id: 1, label: "Basics",   icon: "" },
-  { id: 2, label: "Media",    icon: "" },
-  { id: 3, label: "Pricing",  icon: "" },
-  { id: 4, label: "Publish",  icon: "" },
+  { id: 1, label: "Basics",  icon: "" },
+  { id: 2, label: "Media",   icon: "" },
+  { id: 3, label: "Pricing", icon: "" },
+  { id: 4, label: "Publish", icon: "" },
 ];
 
-function StepBasics({ form, onChange, errors }) {
+/* ─────────────────────────────────────────
+   STEP COMPONENTS
+───────────────────────────────────────── */
+
+// ── Step 1: Basics ─────────────────────────────────────────────────────────
+function StepBasics({ form, onChange, errors, categories }) {
   return (
     <div className="cf-step-body">
       <div className="cf-field">
@@ -64,13 +68,23 @@ function StepBasics({ form, onChange, errors }) {
           <label className="cf-label">Category <span className="cf-required">*</span></label>
           <select
             className={`cf-select ${errors.category ? "cf-input--error" : ""}`}
-            value={form.category}
-            onChange={(e) => onChange("category", e.target.value)}
+            value={form.categoryId || ""}
+            onChange={(e) => {
+              const selected = categories.find((c) => c.id === Number(e.target.value));
+              onChange("categoryId", e.target.value);
+              onChange("category", selected?.name || "");
+            }}
           >
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            <option value="">Select a category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
           </select>
           {errors.category && <p className="cf-error">{errors.category}</p>}
         </div>
+
         <div className="cf-field">
           <label className="cf-label">Level</label>
           <div className="cf-level-pills">
@@ -86,11 +100,45 @@ function StepBasics({ form, onChange, errors }) {
         </div>
       </div>
 
+      {/* ── NEW: Lessons & Duration ── */}
+      <div className="cf-row">
+        <div className="cf-field">
+          <label className="cf-label">Total Lessons</label>
+          <input
+            type="number"
+            min="0"
+            className={`cf-input ${errors.totalLessons ? "cf-input--error" : ""}`}
+            value={form.totalLessons ?? ""}
+            onChange={(e) =>
+              onChange("totalLessons", e.target.value === "" ? "" : Number(e.target.value))
+            }
+          />
+          {errors.totalLessons && <p className="cf-error">{errors.totalLessons}</p>}
+        </div>
 
+        <div className="cf-field">
+          <label className="cf-label">
+            Total Duration{" "}
+            <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 400 }}>(minutes)</span>
+          </label>
+          <input
+            type="number"
+            min="0"
+            className={`cf-input ${errors.totalDuration ? "cf-input--error" : ""}`}
+            value={form.totalDuration ?? ""}
+            onChange={(e) =>
+              onChange("totalDuration", e.target.value === "" ? "" : Number(e.target.value))
+            }
+          />
+          {errors.totalDuration && <p className="cf-error">{errors.totalDuration}</p>}
+        </div>
+      </div>
+      <p className="cf-hint">These values help students understand the course scope before enrolling.</p>
     </div>
   );
 }
 
+// ── Step 2: Media ──────────────────────────────────────────────────────────
 function StepMedia({ form, onChange }) {
   const fileRef = useRef();
   const [dragging, setDragging] = useState(false);
@@ -114,12 +162,24 @@ function StepMedia({ form, onChange }) {
           onDrop={(e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }}
           onClick={() => fileRef.current.click()}
         >
-          <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => handleFile(e.target.files[0])} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => handleFile(e.target.files[0])}
+          />
           {preview ? (
             <div className="cf-thumb-preview-wrap">
               <img src={preview} alt="Thumbnail" className="cf-thumb-preview" />
-              <button type="button" className="cf-thumb-remove"
-                onClick={(e) => { e.stopPropagation(); onChange("thumbnailFile", null); onChange("thumbnailPreview", null); }}
+              <button
+                type="button"
+                className="cf-thumb-remove"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange("thumbnailFile", null);
+                  onChange("thumbnailPreview", null);
+                }}
               >
                 ✕ Remove
               </button>
@@ -148,6 +208,7 @@ function StepMedia({ form, onChange }) {
   );
 }
 
+// ── Step 3: Pricing ────────────────────────────────────────────────────────
 function StepPricing({ form, onChange, errors }) {
   return (
     <div className="cf-step-body">
@@ -155,13 +216,25 @@ function StepPricing({ form, onChange, errors }) {
         <label className="cf-label">Pricing Model</label>
         <div className="cf-pricing-cards">
           <label className={`cf-pricing-card ${form.isFree ? "cf-pricing-card--active" : ""}`}>
-            <input type="radio" name="pricing" checked={form.isFree} onChange={() => { onChange("isFree", true); onChange("price", ""); }} style={{ display: "none" }} />
+            <input
+              type="radio"
+              name="pricing"
+              checked={form.isFree}
+              onChange={() => { onChange("isFree", true); onChange("price", ""); }}
+              style={{ display: "none" }}
+            />
             <span className="cf-pricing-card__icon"></span>
             <span className="cf-pricing-card__label">Free</span>
             <span className="cf-pricing-card__desc">Anyone can enroll at no cost</span>
           </label>
           <label className={`cf-pricing-card ${!form.isFree ? "cf-pricing-card--active" : ""}`}>
-            <input type="radio" name="pricing" checked={!form.isFree} onChange={() => onChange("isFree", false)} style={{ display: "none" }} />
+            <input
+              type="radio"
+              name="pricing"
+              checked={!form.isFree}
+              onChange={() => onChange("isFree", false)}
+              style={{ display: "none" }}
+            />
             <span className="cf-pricing-card__icon"></span>
             <span className="cf-pricing-card__label">Paid</span>
             <span className="cf-pricing-card__desc">Set a price for enrollment</span>
@@ -177,7 +250,8 @@ function StepPricing({ form, onChange, errors }) {
             <input
               type="number"
               className="cf-input cf-input--price"
-              min="0" step="0.01"
+              min="0"
+              step="0.01"
               value={form.price}
               onChange={(e) => onChange("price", e.target.value)}
             />
@@ -189,6 +263,7 @@ function StepPricing({ form, onChange, errors }) {
   );
 }
 
+// ── Step 4: Publish ────────────────────────────────────────────────────────
 function StepPublish({ form, onChange }) {
   const tags = form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
   const preview = form.thumbnailPreview || form.thumbnailUrl;
@@ -207,6 +282,10 @@ function StepPublish({ form, onChange }) {
             <span>{form.language}</span>
             <span>·</span>
             <span>{form.isFree ? "Free" : `$${form.price}`}</span>
+            <span>·</span>
+            <span>{form.totalLessons || 0} lessons</span>
+            <span>·</span>
+            <span>{form.totalDuration || 0} min</span>
           </div>
           {tags.length > 0 && (
             <div className="cf-summary-tags">
@@ -220,12 +299,24 @@ function StepPublish({ form, onChange }) {
         <label className="cf-label">Publish status</label>
         <div className="cf-publish-toggle-row">
           <label className={`cf-publish-opt ${!form.published ? "cf-publish-opt--active" : ""}`}>
-            <input type="radio" name="pub" checked={!form.published} onChange={() => onChange("published", false)} style={{ display:"none" }} />
+            <input
+              type="radio"
+              name="pub"
+              checked={!form.published}
+              onChange={() => onChange("published", false)}
+              style={{ display: "none" }}
+            />
             <span> Save as Draft</span>
             <span className="cf-publish-opt__desc">Visible only to you until published</span>
           </label>
           <label className={`cf-publish-opt ${form.published ? "cf-publish-opt--active" : ""}`}>
-            <input type="radio" name="pub" checked={form.published} onChange={() => onChange("published", true)} style={{ display:"none" }} />
+            <input
+              type="radio"
+              name="pub"
+              checked={form.published}
+              onChange={() => onChange("published", true)}
+              style={{ display: "none" }}
+            />
             <span> Published</span>
             <span className="cf-publish-opt__desc">Live to all students</span>
           </label>
@@ -235,8 +326,10 @@ function StepPublish({ form, onChange }) {
   );
 }
 
-/* ── Edit Modal ── */
-function EditCourseModal({ course, onClose, onSave, token }) {
+/* ─────────────────────────────────────────
+   EDIT MODAL
+───────────────────────────────────────── */
+function EditCourseModal({ course, onClose, onSave, token, categories }) {
   const [step, setStep]     = useState(1);
   const [form, setForm]     = useState({ ...course, thumbnailFile: null, thumbnailPreview: null });
   const [errors, setErrors] = useState({});
@@ -253,7 +346,11 @@ function EditCourseModal({ course, onClose, onSave, token }) {
     if (step === 1) {
       if (!form.title?.trim())       e.title       = "Title is required";
       if (!form.description?.trim()) e.description = "Description is required";
-      if (!form.category)            e.category    = "Please select a category";
+      if (!form.categoryId)          e.category    = "Please select a category";
+      if (form.totalLessons === "" || form.totalLessons < 0)
+        e.totalLessons = "Enter a valid number of lessons (0 or more)";
+      if (form.totalDuration === "" || form.totalDuration < 0)
+        e.totalDuration = "Enter a valid duration (0 or more minutes)";
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -268,11 +365,11 @@ function EditCourseModal({ course, onClose, onSave, token }) {
         description:   form.description,
         thumbnailUrl:  form.thumbnailPreview || form.thumbnailUrl || "",
         free:          !!form.isFree,
-        publiched:     !!form.published,   
-        totalLessons:  form.totalLessons   || 0,
-        totalDuration: form.totalDuration  || 0,
+        publiched:     !!form.published,
+        totalLessons:  Number(form.totalLessons)  || 0,
+        totalDuration: Number(form.totalDuration) || 0,
         INSTRUCTOR:    INSTRUCTOR_ID,
-        categoryId:    form.categoryId     || 1,
+        categoryId:    form.categoryId || 1,
       };
 
       await axios.put(
@@ -304,7 +401,6 @@ function EditCourseModal({ course, onClose, onSave, token }) {
             </h2>
           </div>
           <div className="cf-modal__header-actions">
-            {/* Delete */}
             {!showDeleteConfirm ? (
               <button
                 className="cf-delete-btn"
@@ -317,7 +413,7 @@ function EditCourseModal({ course, onClose, onSave, token }) {
               <div className="cf-delete-confirm">
                 <span>Are you sure?</span>
                 <button className="cf-delete-confirm__yes" onClick={() => { onClose(); }}>Yes, delete</button>
-                <button className="cf-delete-confirm__no"  onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
+                <button className="cf-delete-confirm__no" onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
               </div>
             )}
             <button className="cf-modal__close" onClick={onClose}>✕</button>
@@ -343,7 +439,7 @@ function EditCourseModal({ course, onClose, onSave, token }) {
 
         {/* Body */}
         <div className="cf-modal__body">
-          {step === 1 && <StepBasics  form={form} onChange={onChange} errors={errors} />}
+          {step === 1 && <StepBasics  form={form} onChange={onChange} errors={errors} categories={categories} />}
           {step === 2 && <StepMedia   form={form} onChange={onChange} />}
           {step === 3 && <StepPricing form={form} onChange={onChange} errors={errors} />}
           {step === 4 && <StepPublish form={form} onChange={onChange} />}
@@ -379,16 +475,16 @@ function EditCourseModal({ course, onClose, onSave, token }) {
 ───────────────────────────────────────── */
 export default function EditCourse() {
   const navigate = useNavigate();
-  const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null);
-  const [saved, setSaved]     = useState(false);
-  const [savedId, setSavedId] = useState(null);
+  const [courses,    setCourses]    = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [editing,    setEditing]    = useState(null);
+  const [saved,      setSaved]      = useState(false);
+  const [savedId,    setSavedId]    = useState(null);
 
-  // جيب الـ token من أي مكان بتخزنه (localStorage مثلاً)
   const token = localStorage.getItem("token");
 
-  /* ── Fetch courses from API ── */
+  /* ── Fetch courses ── */
   const fetchCourses = async () => {
     setLoading(true);
     try {
@@ -400,7 +496,7 @@ export default function EditCourse() {
         (Array.isArray(res.data) ? res.data : []).map((c) => ({
           ...c,
           published: !!c.published,
-          isFree:    !!c.free,            
+          isFree:    !!c.free,
         }))
       );
     } catch (err) {
@@ -411,8 +507,22 @@ export default function EditCourse() {
     }
   };
 
+  /* ── Fetch categories from API ── */
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get(
+        `${BASE_URL}api/categories/all`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCategories(res.data);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
   useEffect(() => {
     fetchCourses();
+    fetchCategories();
   }, []);
 
   const handleSave = (updated) => {
@@ -438,7 +548,9 @@ export default function EditCourse() {
 
       {saved && <div className="cf-toast">✓ Course updated successfully!</div>}
 
-      {loading && <p style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>Loading courses…</p>}
+      {loading && (
+        <p style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>Loading courses…</p>
+      )}
 
       {!loading && (
         <div className="cf-edit-grid">
@@ -483,7 +595,6 @@ export default function EditCourse() {
                     <button className="ins-btn-card-primary" onClick={() => setEditing(c)}>
                        Edit
                     </button>
-
                   </div>
                 </div>
               </div>
@@ -498,6 +609,7 @@ export default function EditCourse() {
           onClose={() => setEditing(null)}
           onSave={handleSave}
           token={token}
+          categories={categories}
         />
       )}
     </div>

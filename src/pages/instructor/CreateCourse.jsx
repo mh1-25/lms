@@ -5,7 +5,6 @@ import axios from "axios";
 import { useEffect } from "react";
 import BASE_URL from "../../config/url";
 
-const CATEGORIES = ["Web Development", "Backend", "Data Science", "Design", "DevOps", "Computer Science", "Mobile", "Other"];
 const LEVELS = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
 const LEVEL_LABEL = { BEGINNER: "Beginner", INTERMEDIATE: "Intermediate", ADVANCED: "Advanced" };
 
@@ -23,6 +22,7 @@ const EMPTY_FORM = {
   subtitle: "",
   description: "",
   category: "",
+  categoryId: "",
   level: "BEGINNER",
   language: "English",
   tags: "",
@@ -32,6 +32,8 @@ const EMPTY_FORM = {
   price: "",
   isFree: false,
   published: false,
+  totalLessons: "",
+  totalDuration: "",
 };
 
 const EMPTY_LESSON = {
@@ -224,7 +226,8 @@ function AddLessonModal({ course, onClose, token }) {
 }
 
 
-function StepBasics({ form, onChange, errors }) {
+// ── Step 1: Basics ────────────────────────────────────────────────────────────
+function StepBasics({ form, onChange, errors, categories }) {
   return (
     <div className="cf-step-body">
       <div className="cf-field">
@@ -265,11 +268,19 @@ function StepBasics({ form, onChange, errors }) {
           <label className="cf-label">Category <span className="cf-required">*</span></label>
           <select
             className={`cf-select ${errors.category ? "cf-input--error" : ""}`}
-            value={form.category}
-            onChange={(e) => onChange("category", e.target.value)}
+            value={form.categoryId}
+            onChange={(e) => {
+              const selected = categories.find((c) => c.id === Number(e.target.value));
+              onChange("categoryId", e.target.value);
+              onChange("category", selected?.name || "");
+            }}
           >
             <option value="">Select a category</option>
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
           </select>
           {errors.category && <p className="cf-error">{errors.category}</p>}
         </div>
@@ -302,10 +313,41 @@ function StepBasics({ form, onChange, errors }) {
           />
         </div>
       </div>
+
+      {/* ── NEW: Total Lessons & Total Duration ── */}
+      <div className="cf-row">
+        <div className="cf-field">
+          <label className="cf-label">Total Lessons <span className="cf-required">*</span></label>
+          <input
+            type="number"
+            className={`cf-input ${errors.totalLessons ? "cf-input--error" : ""}`}
+            placeholder="e.g. 10"
+            min="1"
+            value={form.totalLessons}
+            onChange={(e) => onChange("totalLessons", e.target.value)}
+          />
+          {errors.totalLessons && <p className="cf-error">{errors.totalLessons}</p>}
+        </div>
+
+        <div className="cf-field">
+          <label className="cf-label">Total Duration (minutes) <span className="cf-required">*</span></label>
+          <input
+            type="number"
+            className={`cf-input ${errors.totalDuration ? "cf-input--error" : ""}`}
+            placeholder="e.g. 120"
+            min="1"
+            value={form.totalDuration}
+            onChange={(e) => onChange("totalDuration", e.target.value)}
+          />
+          {errors.totalDuration && <p className="cf-error">{errors.totalDuration}</p>}
+        </div>
+      </div>
+
     </div>
   );
 }
 
+// ── Step 2: Media ─────────────────────────────────────────────────────────────
 function StepMedia({ form, onChange }) {
   const fileRef = useRef();
   const [dragging, setDragging] = useState(false);
@@ -374,6 +416,7 @@ function StepMedia({ form, onChange }) {
   );
 }
 
+// ── Step 3: Pricing ───────────────────────────────────────────────────────────
 function StepPricing({ form, onChange }) {
   return (
     <div className="cf-step-body">
@@ -428,6 +471,7 @@ function StepPricing({ form, onChange }) {
   );
 }
 
+// ── Step 4: Publish ───────────────────────────────────────────────────────────
 function StepPublish({ form, onChange }) {
   const tags = form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
 
@@ -447,6 +491,10 @@ function StepPublish({ form, onChange }) {
             <span>{form.language}</span>
             <span>·</span>
             <span>{form.isFree ? "Free" : form.price ? `$${form.price}` : "Paid (no price set)"}</span>
+            <span>·</span>
+            <span>{form.totalLessons || 0} lessons</span>
+            <span>·</span>
+            <span>{form.totalDuration || 0} min</span>
           </div>
           {tags.length > 0 && (
             <div className="cf-summary-tags">
@@ -476,7 +524,8 @@ function StepPublish({ form, onChange }) {
 }
 
 
-function CreateCourseModal({ onClose, onSave }) {
+// ── Create Course Modal ───────────────────────────────────────────────────────
+function CreateCourseModal({ onClose, onSave, categories }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
@@ -492,7 +541,9 @@ function CreateCourseModal({ onClose, onSave }) {
     if (step === 1) {
       if (!form.title.trim()) e.title = "Title is required";
       if (!form.description.trim()) e.description = "Description is required";
-      if (!form.category) e.category = "Please select a category";
+      if (!form.categoryId) e.category = "Please select a category";
+      if (!form.totalLessons) e.totalLessons = "Total lessons is required";
+      if (!form.totalDuration) e.totalDuration = "Total duration is required";
     }
     if (step === 3 && !form.isFree && !form.price) {
       e.price = "Please enter a price or select Free";
@@ -549,7 +600,7 @@ function CreateCourseModal({ onClose, onSave }) {
         </div>
 
         <div className="cf-modal__body">
-          {step === 1 && <StepBasics form={form} onChange={onChange} errors={errors} />}
+          {step === 1 && <StepBasics form={form} onChange={onChange} errors={errors} categories={categories} />}
           {step === 2 && <StepMedia form={form} onChange={onChange} />}
           {step === 3 && <StepPricing form={form} onChange={onChange} errors={errors} />}
           {step === 4 && <StepPublish form={form} onChange={onChange} />}
@@ -576,21 +627,22 @@ function CreateCourseModal({ onClose, onSave }) {
 }
 
 
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function CreateCourse() {
   const token = localStorage.getItem('token');
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [courses, setCourses] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [saved, setSaved] = useState(false);
-  const [lessonTarget, setLessonTarget] = useState(null); 
+  const [lessonTarget, setLessonTarget] = useState(null);
 
   const fetchCourses = async () => {
     try {
       const res = await axios.get(`${BASE_URL}api/courses/my-courses/${instructorId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      console.log(res.data)
+      console.log(res.data);
       setCourses(
         (Array.isArray(res.data) ? res.data : []).map((c) => ({
           ...c,
@@ -604,7 +656,21 @@ export default function CreateCourse() {
     }
   };
 
-  useEffect(() => { fetchCourses(); }, []);
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}api/categories/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCategories(res.data);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchCourses();
+    fetchCategories();
+  }, []);
 
   const handleSave = async (form) => {
     try {
@@ -615,10 +681,10 @@ export default function CreateCourse() {
           description: form.description,
           thumbnailUrl: form.thumbnailPreview || "thumb.jpg",
           free: form.isFree,
-          totalLessons: 10,
-          totalDuration: 120,
+          totalLessons: parseInt(form.totalLessons),   // ← from form
+          totalDuration: parseInt(form.totalDuration), // ← from form
           INSTRUCTOR: instructorId,
-          categoryId: 3,
+          categoryId: form.categoryId,
           published: form.published,
         },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -735,6 +801,7 @@ export default function CreateCourse() {
         <CreateCourseModal
           onClose={() => setShowModal(false)}
           onSave={handleSave}
+          categories={categories}
         />
       )}
 

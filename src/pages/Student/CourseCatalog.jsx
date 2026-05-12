@@ -4,9 +4,8 @@ import axios from "axios";
 import { useEffect } from "react";
 import BASE_URL from "../../config/url";
 
-const token = localStorage.getItem("token")
+const token = localStorage.getItem("token");
 
-const CATEGORIES = ["All", "Web Development", "Backend", "Design", "Computer Science", "Data Science"];
 const LEVELS = ["All", "BEGINNER", "INTERMEDIATE", "ADVANCED"];
 
 function formatDuration(minutes) {
@@ -65,8 +64,6 @@ function CourseCard({ course }) {
         </div>
 
         <div className="course-card__footer">
-
-
           <Link
             className="btn-enroll db-btn-continue"
             to={`/student/details/${course.id}`}
@@ -84,44 +81,34 @@ export default function CourseCatalog() {
   const [category, setCategory] = useState("All");
   const [level, setLevel] = useState("All");
   const [freeOnly, setFreeOnly] = useState(false);
-
-
   const [courses, setCourses] = useState([]);
+  const [categories, setCategories] = useState([]);
 
-
+  // Fetch courses
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await axios.get(
-          `${BASE_URL}api/courses`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const res = await axios.get(`${BASE_URL}api/courses`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const formatted = res.data.map((c) => ({
           id: c.id,
           title: c.title || "",
           description: c.description || "",
-          thumbnailUrl: `${c.thumbnailUrl}`,
+          thumbnailUrl: ` ${c.thumbnailUrl}`,
           free: c.free,
           totalLessons: c.totalLessons || 0,
           totalDuration: c.totalDuration || 0,
           level: c.level || "BEGINNER",
-
           instructor: {
             firstName: c.instructorName?.split(" ")[0] || "Unknown",
             lastName: c.instructorName?.split(" ")[1] || "",
           },
-
           category: {
             name: c.categoryName || "Unknown",
           },
-
           enrollments: [],
         }));
-
         setCourses(formatted);
       } catch (err) {
         console.log("Error fetching courses:", err);
@@ -131,17 +118,21 @@ export default function CourseCatalog() {
     fetchCourses();
   }, []);
 
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}api/categories/all`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCategories(res.data);
+      } catch (e) {
+        console.log(e);
+      }
+    };
 
-  // const filtered = useMemo(() => {
-  //   return courses.filter((c) => {
-  //     if (search && !c.title.toLowerCase().includes(search.toLowerCase())) return false;
-  //     if (category !== "All" && c.category.name !== category) return false;
-  //     if (level !== "All" && c.level !== level) return false;
-  //     if (freeOnly && !c.free) return false;
-  //     return true;
-  //   });
-  // }, [search, category, level, freeOnly]);
-
+    fetchCategories();
+  }, []);
 
   const filtered = useMemo(() => {
     return courses.filter((c) => {
@@ -157,11 +148,9 @@ export default function CourseCatalog() {
       const matchesCategory =
         category === "All" || c.category.name === category;
 
-      const matchesLevel =
-        level === "All" || c.level === level;
+      const matchesLevel = level === "All" || c.level === level;
 
-      const matchesFree =
-        !freeOnly || c.free === true;
+      const matchesFree = !freeOnly || c.free === true;
 
       return (
         (!search || matchesSearch) &&
@@ -172,10 +161,9 @@ export default function CourseCatalog() {
     });
   }, [courses, search, category, level, freeOnly]);
 
-
   return (
     <div className="cd-page">
-      <div className=" db-hero ">
+      <div className="db-hero">
         <div>
           <h1 className="db-hero__name">Course Catalog</h1>
           <p className="catalog-header__sub">
@@ -199,13 +187,22 @@ export default function CourseCatalog() {
         </div>
 
         <div className="filter-pills">
-          {CATEGORIES.map((cat) => (
+          {/* "All" pill is always first */}
+          <button
+            className={`pill${category === "All" ? " pill--active" : ""}`}
+            onClick={() => setCategory("All")}
+          >
+            All
+          </button>
+
+          {/* Dynamic categories from API */}
+          {categories.map((cat) => (
             <button
-              key={cat}
-              className={`pill${category === cat ? " pill--active" : ""}`}
-              onClick={() => setCategory(cat)}
+              key={cat.id}
+              className={`pill${category === cat.name ? " pill--active" : ""}`}
+              onClick={() => setCategory(cat.name)}
             >
-              {cat}
+              {cat.name}
             </button>
           ))}
         </div>
@@ -241,11 +238,15 @@ export default function CourseCatalog() {
         </div>
       ) : (
         <div className="catalog-empty">
-          {/* <span className="catalog-empty__icon"></span> */}
           <p>No courses match your filters.</p>
           <button
             className="btn-reset"
-            onClick={() => { setSearch(""); setCategory("All"); setLevel("All"); setFreeOnly(false); }}
+            onClick={() => {
+              setSearch("");
+              setCategory("All");
+              setLevel("All");
+              setFreeOnly(false);
+            }}
           >
             Clear filters
           </button>
